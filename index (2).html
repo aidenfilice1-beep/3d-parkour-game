@@ -3,10 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https:; script-src 'self' https: 'unsafe-inline' 'unsafe-eval'; style-src 'self' https: 'unsafe-inline';">
+
+    <!-- GitHub-Pages-friendly CSP -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self' https: data: blob: 'unsafe-inline';
+                   script-src 'self' https: 'unsafe-inline' 'unsafe-eval';
+                   style-src 'self' https: 'unsafe-inline';
+                   connect-src 'self' https:;">
+
     <title>Ball Dodge Arena (Combat)</title>
+
+    <!-- Tailwind (no integrity – dev friendly) -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Tone.js – classic (non-module) build -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&display=swap');
         body { background-color: #0d1117; font-family: 'Chakra Petch', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; overflow: hidden; }
@@ -19,11 +31,11 @@
         #shopContainer { background-color: #161b22; border: 2px solid #39ff14; border-radius: 10px; max-width: 95%; width: 600px; max-height: 90%; display: grid; grid-template-rows: auto 1fr auto; gap: 1.5rem; padding: 2rem; }
         #shipList { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem; padding: 0.5rem; overflow-y: auto; max-height: 450px; }
         .ship-card { background-color: #1f2733; border: 1px solid #334d60; border-radius: 10px; padding: 1rem; display: flex; flex-direction: column; align-items: center; transition: all 0.3s; }
-        .ship-card[data-glow-color="#ff0000"] { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
-        .ship-card[data-glow-color="#ee82ee"] { box-shadow: 0 0 10px rgba(238, 130, 238, 0.5); }
-        .ship-card[data-glow-color="#ffff00"] { box-shadow: 0 0 10px rgba(255, 255, 0, 0.5); }
-        .ship-card[data-glow-color="#00bfff"] { box-shadow: 0 0 10px rgba(0, 191, 255, 0.5); }
-        .ship-card[data-glow-color="#39ff14"] { box-shadow: 0 0 15px rgba(57, 255, 20, 0.8); }
+        .ship-card[data-glow-color="#ff0000"] { box-shadow: 0 0 10px rgba(255,0,0,0.5); }
+        .ship-card[data-glow-color="#ee82ee"] { box-shadow: 0 0 10px rgba(238,130,238,0.5); }
+        .ship-card[data-glow-color="#ffff00"] { box-shadow: 0 0 10px rgba(255,255,0,0.5); }
+        .ship-card[data-glow-color="#00bfff"] { box-shadow: 0 0 10px rgba(0,191,255,0.5); }
+        .ship-card[data-glow-color="#39ff14"] { box-shadow: 0 0 15px rgba(57,255,20,0.8); }
         .ship-card.equipped { border: 3px solid #39ff14; transform: scale(1.05); box-shadow: 0 0 20px #39ff14; }
         .ship-card:not(.equipped):hover { transform: translateY(-8px); border-color: #00ffff; }
     </style>
@@ -40,7 +52,7 @@
                 <p id="totalCoinsMessage" class="text-3xl text-yellow-400 mb-8 text-center"></p>
                 <button id="actionButton" class="game-button rounded-full"></button>
                 <button id="shopButton" class="game-button rounded-full mt-4 bg-purple-600" style="box-shadow: 0 0 15px #ee82ee;">VISIT THE SHOP</button>
-                <p class="text-sm text-gray-400 mt-6">(WASD / Arrows / Tap to move & shoot)</p>
+                <p class="text-sm text-gray-400 mt-6">(WASD / Arrows / Tap to move &amp; shoot)</p>
             </div>
             <div id="shopContainer" class="hidden w-full h-full p-4">
                 <h2 class="text-4xl font-extrabold text-white mb-4 text-center pb-2 text-cyan-300">SHIP MARKETPLACE</h2>
@@ -53,8 +65,8 @@
         </div>
     </div>
 
-    <script type="module">
-        // OFFLINE MODE — NO FREEZE, NO FIREBASE WAIT
+    <script>
+        // ==== OFFLINE MODE – NO FREEZE ====
         const isAuthReady = true;
         const userId = "local-user";
         let coins = 0, sessionCoins = 0, equippedShipId = 'default', ownedShipIds = ['default'];
@@ -93,567 +105,415 @@
         ];
 
         let gameRunning = false;
-        let player = { x: 0, y: 0, dx: 0, dy: 0, speed: 5, rotation: 0, particles: [] }; 
+        let player = { x: 0, y: 0, dx: 0, dy: 0, speed: 5, rotation: 0, particles: [] };
         let balls = [], projectiles = [], score = 0, lastTime = 0, spawnTimer = 0, ballSpeedFactor = 1.0, spawnInterval = 1000;
         let lastHitSoundTime = 0, keys = {};
         let isToneInitialized = false;
         let noiseSynth = null, laserSynth = null, hitSynth = null;
         let audioUnlocked = false;
 
-        // FIXED: Initialize Tone.js only after first user click, with proper error handling
+        // ---- Tone.js init (only after first click) ----
         async function initializeTone() {
             if (isToneInitialized) return;
             try {
                 await Tone.start();
-                console.log("Tone.js started successfully");
+                console.log("Tone.js started");
                 isToneInitialized = true;
                 createSynths();
                 audioUnlocked = true;
             } catch (e) {
-                console.warn("Tone.js failed to start:", e);
+                console.warn("Tone.js failed:", e);
                 isToneInitialized = true;
                 audioUnlocked = false;
             }
         }
-
         function createSynths() {
-            if (!noiseSynth) noiseSynth = new Tone.NoiseSynth({ 
-                noise: { type: 'white' }, 
-                envelope: { attack: 0.001, decay: 0.15, sustain: 0.01, release: 0.15 } 
-            }).toDestination();
-            if (!laserSynth) laserSynth = new Tone.Synth({ 
-                oscillator: { type: "square" }, 
-                envelope: { attack: 0.005, decay: 0.1, sustain: 0.0, release: 0.1 }, 
-                volume: -15 
-            }).toDestination();
-            if (!hitSynth) hitSynth = new Tone.MembraneSynth({ 
-                volume: -18, pitchDecay: 0.01, octaves: 2, 
-                envelope: { attack: 0.001, decay: 0.1, sustain: 0.01, release: 0.05 } 
-            }).toDestination();
+            noiseSynth = new Tone.NoiseSynth({ noise:{type:'white'}, envelope:{attack:0.001,decay:0.15,sustain:0.01,release:0.15} }).toDestination();
+            laserSynth = new Tone.Synth({ oscillator:{type:"square"}, envelope:{attack:0.005,decay:0.1,sustain:0,release:0.1}, volume:-15 }).toDestination();
+            hitSynth   = new Tone.MembraneSynth({ volume:-18, pitchDecay:0.01, octaves:2, envelope:{attack:0.001,decay:0.1,sustain:0.01,release:0.05} }).toDestination();
         }
-
         function disposeSynths() {
-            if (noiseSynth) { noiseSynth.dispose(); noiseSynth = null; }
-            if (laserSynth) { laserSynth.dispose(); laserSynth = null; }
-            if (hitSynth) { hitSynth.dispose(); hitSynth = null; }
+            [noiseSynth, laserSynth, hitSynth].forEach(s => s && s.dispose && s.dispose());
+            noiseSynth = laserSynth = hitSynth = null;
+        }
+        function playGameOverSound(){ if(audioUnlocked && noiseSynth) noiseSynth.triggerAttackRelease("2n"); }
+        function playLaserSound(){ if(audioUnlocked && laserSynth) laserSynth.triggerAttackRelease("C6","16n"); }
+        function playHitSound(){
+            const now = performance.now();
+            if(now - lastHitSoundTime < HIT_SOUND_COOLDOWN) return;
+            if(audioUnlocked && hitSynth) hitSynth.triggerAttackRelease("C3","32n");
+            lastHitSoundTime = now;
         }
 
-        function playGameOverSound() { 
-            if (audioUnlocked && noiseSynth) {
-                noiseSynth.triggerAttackRelease("2n");
-            }
-        }
-        function playLaserSound() { 
-            if (audioUnlocked && laserSynth) {
-                laserSynth.triggerAttackRelease("C6", "16n");
-            }
-        }
-        function playHitSound() { 
-            const currentTime = performance.now();
-            if (currentTime - lastHitSoundTime < HIT_SOUND_COOLDOWN) return;
-            if (audioUnlocked && hitSynth) {
-                hitSynth.triggerAttackRelease("C3", "32n");
-            }
-            lastHitSoundTime = currentTime;
-        }
-
-        function updateCoinDisplay() {
+        // ---- UI helpers ----
+        function updateCoinDisplay(){
             coinDisplay.textContent = `COINS: ${coins + sessionCoins}`;
-            if (shopCoinBalance) shopCoinBalance.textContent = coins;
+            if(shopCoinBalance) shopCoinBalance.textContent = coins;
         }
-
-        window.attemptPurchase = attemptPurchase;
-        window.equipShip = equipShip;
-
-        function showShop() {
-            standardOverlay.style.display = 'none';
-            shopContainer.style.display = 'grid';
-            overlay.style.display = 'flex';
+        function showShop(){
+            standardOverlay.style.display='none';
+            shopContainer.style.display='grid';
+            overlay.style.display='flex';
             overlay.classList.add('game-over-visible');
             renderShop();
             updateCoinDisplay();
         }
-
-        function renderShop() {
-            shipList.innerHTML = '';
-            SHIP_DATA.forEach(ship => {
-                const isOwned = ownedShipIds.includes(ship.id);
-                const isEquipped = equippedShipId === ship.id;
-                let buttonText = 'EQUIP';
-                let buttonClasses = 'px-3 py-1 text-sm rounded-full font-bold transition-all';
-                let action = `equipShip('${ship.id}')`;
-                
-                if (!isOwned) {
-                    buttonText = `BUY - ${ship.price} COINS`;
-                    buttonClasses += ' bg-yellow-500 hover:bg-yellow-400 text-gray-900 shadow-lg shadow-yellow-700/50';
-                    action = `attemptPurchase('${ship.id}', ${ship.price})`;
-                } else if (isEquipped) {
-                    buttonText = 'EQUIPPED';
-                    buttonClasses += ' bg-green-500 opacity-80 cursor-default text-gray-900 shadow-lg shadow-green-700/50';
-                    action = '';
-                } else {
-                    buttonClasses += ' bg-cyan-500 hover:bg-cyan-400 text-gray-900 shadow-lg shadow-cyan-700/50';
+        function renderShop(){
+            shipList.innerHTML='';
+            SHIP_DATA.forEach(ship=>{
+                const owned = ownedShipIds.includes(ship.id);
+                const equipped = equippedShipId===ship.id;
+                let btnTxt='EQUIP', btnCls='px-3 py-1 text-sm rounded-full font-bold transition-all', action=`equipShip('${ship.id}')`;
+                if(!owned){
+                    btnTxt=`BUY - ${ship.price} COINS`;
+                    btnCls+=' bg-yellow-500 hover:bg-yellow-400 text-gray-900 shadow-lg shadow-yellow-700/50';
+                    action=`attemptPurchase('${ship.id}',${ship.price})`;
+                }else if(equipped){
+                    btnTxt='EQUIPPED';
+                    btnCls+=' bg-green-500 opacity-80 cursor-default text-gray-900 shadow-lg shadow-green-700/50';
+                    action='';
+                }else{
+                    btnCls+=' bg-cyan-500 hover:bg-cyan-400 text-gray-900 shadow-lg shadow-cyan-700/50';
                 }
-
-                let rarityColor = 'text-gray-400';
-                if (ship.rarity === 'Uncommon') rarityColor = 'text-green-400';
-                else if (ship.rarity === 'Rare') rarityColor = 'text-blue-400';
-                else if (ship.rarity === 'Epic') rarityColor = 'text-purple-400';
-                else if (ship.rarity === 'Legendary') rarityColor = 'text-yellow-400';
-                else if (ship.rarity === 'Mythic') rarityColor = 'text-pink-400';
-
-                const card = document.createElement('div');
-                card.className = `ship-card ${isEquipped ? 'equipped' : ''}`;
-                card.setAttribute('data-glow-color', ship.glow);
-                card.innerHTML = `
-                    <h3 class="text-2xl font-bold ${rarityColor} mb-1">${ship.name}</h3>
-                    <p class="text-sm ${rarityColor} italic mb-2">(${ship.rarity})</p>
-                    <div class="w-20 h-20 rounded-full flex items-center justify-center mb-4 border-2 border-white/20" 
-                         style="background-color: ${ship.color}; box-shadow: 0 0 20px ${ship.glow}, inset 0 0 8px white;">
-                        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: ${ship.engineColor};">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                const rarityClr = ship.rarity==='Uncommon'?'text-green-400':
+                                 ship.rarity==='Rare'?'text-blue-400':
+                                 ship.rarity==='Epic'?'text-purple-400':
+                                 ship.rarity==='Legendary'?'text-yellow-400':
+                                 ship.rarity==='Mythic'?'text-pink-400':'text-gray-400';
+                const card=document.createElement('div');
+                card.className=`ship-card ${equipped?'equipped':''}`;
+                card.dataset.glowColor=ship.glow;
+                card.innerHTML=`
+                    <h3 class="text-2xl font-bold ${rarityClr} mb-1">${ship.name}</h3>
+                    <p class="text-sm ${rarityClr} italic mb-2">(${ship.rarity})</p>
+                    <div class="w-20 h-20 rounded-full flex items-center justify-center mb-4 border-2 border-white/20"
+                         style="background-color:${ship.color};box-shadow:0 0 20px ${ship.glow}, inset 0 0 8px white;">
+                        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:${ship.engineColor};">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
                         </svg>
                     </div>
                     <p class="text-white text-lg font-mono mb-1">Multiplier: <span class="text-cyan-400">${ship.multiplier}x</span></p>
                     <p class="text-white text-lg font-mono mb-4">Damage: <span class="text-red-400">${ship.damage}</span></p>
-                    <button onclick="${action}" class="${buttonClasses}" ${isEquipped ? 'disabled' : ''}>${buttonText}</button>
+                    <button onclick="${action}" class="${btnCls}" ${equipped?'disabled':''}>${btnTxt}</button>
                     <p id="msg-${ship.id}" class="text-xs text-red-400 mt-2 h-4"></p>
                 `;
                 shipList.appendChild(card);
             });
         }
-
-        function attemptPurchase(shipId, price) {
-            if (coins >= price) {
-                coins -= price;
-                ownedShipIds.push(shipId);
-                equipShip(shipId);
-                const msgEl = document.getElementById(`msg-${ship.id}`);
-                if (msgEl) {
-                    msgEl.textContent = 'Purchased & Equipped!';
-                    msgEl.classList.remove('text-red-400'); msgEl.classList.add('text-green-400');
-                    setTimeout(() => msgEl.textContent = '', 2000);
-                }
-            } else {
-                const msgEl = document.getElementById(`msg-${ship.id}`);
-                if (msgEl) {
-                    msgEl.textContent = 'Not enough coins!';
-                    msgEl.classList.add('text-red-400'); msgEl.classList.remove('text-green-400');
-                    setTimeout(() => msgEl.textContent = '', 2000);
-                }
+        function attemptPurchase(id,price){
+            if(coins>=price){
+                coins-=price; ownedShipIds.push(id); equipShip(id);
+                const msg=document.getElementById(`msg-${id}`);
+                if(msg){ msg.textContent='Purchased & Equipped!'; msg.className='text-xs text-green-400 mt-2 h-4'; setTimeout(()=>msg.textContent='',2000); }
+            }else{
+                const msg=document.getElementById(`msg-${id}`);
+                if(msg){ msg.textContent='Not enough coins!'; msg.className='text-xs text-red-400 mt-2 h-4'; setTimeout(()=>msg.textContent='',2000); }
             }
-            renderShop();
-            updateCoinDisplay();
+            renderShop(); updateCoinDisplay();
         }
-
-        function equipShip(shipId) {
-            if (ownedShipIds.includes(shipId)) {
-                equippedShipId = shipId;
-                renderShop();
-                const msgEl = document.getElementById(`msg-${ship.id}`);
-                if (msgEl) {
-                    msgEl.textContent = 'Equipped!';
-                    msgEl.classList.remove('text-red-400'); msgEl.classList.add('text-green-400');
-                    setTimeout(() => msgEl.textContent = '', 2000);
-                }
+        function equipShip(id){
+            if(ownedShipIds.includes(id)){
+                equippedShipId=id; renderShop();
+                const msg=document.getElementById(`msg-${id}`);
+                if(msg){ msg.textContent='Equipped!'; msg.className='text-xs text-green-400 mt-2 h-4'; setTimeout(()=>msg.textContent='',2000); }
             }
         }
 
-        function resizeCanvas() {
-            const container = document.getElementById('game-container');
-            const size = Math.min(container.offsetWidth, container.offsetHeight);
-            canvas.width = size;
-            canvas.height = size;
+        // ---- Canvas resize ----
+        function resizeCanvas(){
+            const container=document.getElementById('game-container');
+            const size=Math.min(container.offsetWidth,container.offsetHeight);
+            canvas.width=size; canvas.height=size;
         }
 
-        // FIXED: Ensure Tone.js is initialized before starting game
-        async function startGame() {
+        // ---- Game start (await Tone init) ----
+        async function startGame(){
             await initializeTone();
             resizeCanvas();
-            player.x = canvas.width / 2;
-            player.y = canvas.height / 2;
-            player.dx = 0; player.dy = 0; player.rotation = 0; player.particles = [];
-            balls = []; projectiles = []; score = 0; sessionCoins = 0;
-            lastTime = performance.now(); lastCoinUpdateTime = lastTime; lastHitSoundTime = 0;
-            spawnTimer = spawnInterval; ballSpeedFactor = 1.0; keys = {};
-            overlay.classList.remove('game-over-visible'); overlay.style.display = 'none'; 
-            gameRunning = true;
+            player.x=canvas.width/2; player.y=canvas.height/2;
+            player.dx=player.dy=player.rotation=0; player.particles=[];
+            balls=[]; projectiles=[]; score=0; sessionCoins=0;
+            lastTime=performance.now(); lastCoinUpdateTime=lastTime; lastHitSoundTime=0;
+            spawnTimer=spawnInterval; ballSpeedFactor=1.0; keys={};
+            overlay.classList.remove('game-over-visible'); overlay.style.display='none';
+            gameRunning=true;
             updateCoinDisplay(); draw(); requestAnimationFrame(gameLoop);
         }
 
-        function initStartScreen() {
-            resizeCanvas(); draw();
-            updateCoinDisplay();
-            shopContainer.style.display = 'none'; standardOverlay.style.display = 'flex';
-            overlayTitle.textContent = 'BALL DODGE ARENA';
-            overlayTitle.classList.remove('text-red-500', 'animate-pulse'); overlayTitle.classList.add('text-cyan-400');
-            const currentShip = SHIP_DATA.find(s => s.id === equippedShipId);
-            const multiplier = currentShip ? currentShip.multiplier : 1;
-            const damage = currentShip ? currentShip.damage : 1;
-            overlayMessage.textContent = `Equipped: ${currentShip.name} (${multiplier}x Multiplier, ${damage} Damage).`;
-            totalCoinsMessage.textContent = ''; actionButton.textContent = 'START ARENA';
-            overlay.style.display = 'flex'; overlay.classList.add('game-over-visible');
+        function initStartScreen(){
+            resizeCanvas(); draw(); updateCoinDisplay();
+            shopContainer.style.display='none'; standardOverlay.style.display='flex';
+            overlayTitle.textContent='BALL DODGE ARENA';
+            overlayTitle.className='text-6xl mb-4 font-extrabold tracking-widest text-cyan-400';
+            const cur=SHIP_DATA.find(s=>s.id===equippedShipId);
+            overlayMessage.textContent=`Equipped: ${cur.name} (${cur.multiplier}x Multiplier, ${cur.damage} Damage).`;
+            totalCoinsMessage.textContent=''; actionButton.textContent='START ARENA';
+            overlay.style.display='flex'; overlay.classList.add('game-over-visible');
         }
 
-        function spawnBall() {
-            const minBallSize = 15;
-            const maxBallSize = 25;
-            const size = Math.floor(Math.random() * (maxBallSize - minBallSize + 1)) + minBallSize;
-            const radius = size / 2;
-            const health = Math.max(1, Math.floor(radius * 1.5));
-            const newBall = {
-                x: Math.random() * (canvas.width - size * 2) + size, 
-                y: -size, 
-                radius: radius,
-                speed: (3 + Math.random() * 3) * ballSpeedFactor, 
-                health: health,
-                maxHealth: health,
-            };
-            balls.push(newBall);
+        // ---- Game entities ----
+        function spawnBall(){
+            const min=15, max=25, size=Math.floor(Math.random()*(max-min+1))+min;
+            const radius=size/2;
+            const health=Math.max(1,Math.floor(radius*1.5));
+            balls.push({x:Math.random()*(canvas.width-size*2)+size, y:-size, radius, speed:(3+Math.random()*3)*ballSpeedFactor, health, maxHealth:health});
         }
-
-        function shootProjectile() {
-            if (!gameRunning) return;
-            const currentShip = SHIP_DATA.find(s => s.id === equippedShipId);
-            if (!currentShip) return;
+        function shootProjectile(){
+            if(!gameRunning) return;
+            const ship=SHIP_DATA.find(s=>s.id===equippedShipId);
+            if(!ship) return;
             playLaserSound();
-            projectiles.push({
-                x: player.x,
-                y: player.y - PLAYER_SIZE,
-                radius: 3,
-                speed: 15,
-                damage: currentShip.damage,
-                color: currentShip.glow,
-                vx: 0,
-                vy: -1,
-            });
+            projectiles.push({x:player.x, y:player.y-PLAYER_SIZE, radius:3, speed:15, damage:ship.damage, color:ship.glow, vx:0, vy:-1});
         }
 
-        function updateParticles(deltaTime) {
-            const currentShip = SHIP_DATA.find(s => s.id === equippedShipId);
-            if (!currentShip || currentShip.particleType === 0) {
-                player.particles = [];
-                return;
-            }
-            if (Math.random() < 0.8) {
-                const angle = player.rotation;
-                const baseLength = PLAYER_SIZE * 0.7;
-                const offset = { x: baseLength * Math.sin(angle), y: baseLength * Math.cos(angle) };
+        function updateParticles(delta){
+            const ship=SHIP_DATA.find(s=>s.id===equippedShipId);
+            if(!ship||ship.particleType===0){ player.particles=[]; return; }
+            if(Math.random()<0.8){
+                const a=player.rotation;
+                const len=PLAYER_SIZE*0.7;
+                const off={x:len*Math.sin(a), y:len*Math.cos(a)};
                 player.particles.push({
-                    x: player.x - offset.x + (Math.random() - 0.5) * 8,
-                    y: player.y + offset.y + (Math.random() - 0.5) * 8,
-                    vx: -(Math.sin(angle) * 0.5 + (Math.random() - 0.5) * 0.5),
-                    vy: (Math.cos(angle) * 0.5 + (Math.random() * 2)),
-                    life: 100,
-                    size: currentShip.particleType === 3 ? 2.5 : 1.5,
-                    color: currentShip.engineColor
+                    x:player.x-off.x+(Math.random()-0.5)*8,
+                    y:player.y+off.y+(Math.random()-0.5)*8,
+                    vx:-(Math.sin(a)*0.5+(Math.random()-0.5)*0.5),
+                    vy:(Math.cos(a)*0.5+Math.random()*2),
+                    life:100,
+                    size:ship.particleType===3?2.5:1.5,
+                    color:ship.engineColor
                 });
             }
-            for (let i = player.particles.length - 1; i >= 0; i--) {
-                const p = player.particles[i];
-                p.x += p.vx * deltaTime / 16.67;
-                p.y += p.vy * deltaTime / 16.67;
-                p.life -= 1;
-                p.vy *= 0.98;
-                if (p.life <= 0) player.particles.splice(i, 1);
+            for(let i=player.particles.length-1;i>=0;i--){
+                const p=player.particles[i];
+                p.x+=p.vx*delta/16.67; p.y+=p.vy*delta/16.67;
+                p.life--; p.vy*=0.98;
+                if(p.life<=0) player.particles.splice(i,1);
             }
         }
 
-        function update(currentTime) {
-            if (!gameRunning) return;
-            const deltaTime = currentTime - lastTime;
-            lastTime = currentTime;
-            const deltaSeconds = deltaTime / 1000;
-
-            score += deltaSeconds;
-            scoreDisplay.textContent = `TIME: ${score.toFixed(2)}s`;
-
-            const currentShip = SHIP_DATA.find(s => s.id === equippedShipId);
-            const multiplier = currentShip ? currentShip.multiplier : 1;
-            if (currentTime - lastCoinUpdateTime >= 1000) {
-                const secondsPassed = Math.floor((currentTime - lastCoinUpdateTime) / 1000);
-                sessionCoins += multiplier * secondsPassed;
-                lastCoinUpdateTime += secondsPassed * 1000;
-                updateCoinDisplay();
+        function update(now){
+            if(!gameRunning) return;
+            const delta=now-lastTime; lastTime=now; const sec=delta/1000;
+            score+=sec; scoreDisplay.textContent=`TIME: ${score.toFixed(2)}s`;
+            const ship=SHIP_DATA.find(s=>s.id===equippedShipId);
+            const mult=ship?ship.multiplier:1;
+            if(now-lastCoinUpdateTime>=1000){
+                const secs=Math.floor((now-lastCoinUpdateTime)/1000);
+                sessionCoins+=mult*secs; lastCoinUpdateTime+=secs*1000; updateCoinDisplay();
             }
 
-            let moveX = 0, moveY = 0;
-            if (keys['w'] || keys['W'] || keys['ArrowUp']) moveY = -1;
-            else if (keys['s'] || keys['S'] || keys['ArrowDown']) moveY = 1;
-            if (keys['a'] || keys['A'] || keys['ArrowLeft']) moveX = -1;
-            else if (keys['d'] || keys['D'] || keys['ArrowRight']) moveX = 1;
-            if (moveX !== 0 && moveY !== 0) {
-                const mag = Math.sqrt(moveX*moveX + moveY*moveY);
-                moveX /= mag; moveY /= mag;
-            }
-            player.x += moveX * player.speed;
-            player.y += moveY * player.speed;
+            // movement
+            let mx=0,my=0;
+            if(keys['w']||keys['W']||keys['ArrowUp']) my=-1;
+            else if(keys['s']||keys['S']||keys['ArrowDown']) my=1;
+            if(keys['a']||keys['A']||keys['ArrowLeft']) mx=-1;
+            else if(keys['d']||keys['D']||keys['ArrowRight']) mx=1;
+            if(mx&&my){ const m=Math.sqrt(mx*mx+my*my); mx/=m; my/=m; }
+            player.x+=mx*player.speed; player.y+=my*player.speed;
 
-            let targetRotation = 0;
-            if (moveX < 0) targetRotation = -MAX_ROTATION;
-            else if (moveX > 0) targetRotation = MAX_ROTATION;
-            player.rotation += (targetRotation - player.rotation) * ROTATION_SPEED;
+            const targetRot = mx<0?-MAX_ROTATION:mx>0?MAX_ROTATION:0;
+            player.rotation += (targetRot-player.rotation)*ROTATION_SPEED;
 
-            const halfSize = PLAYER_SIZE / 2;
-            player.x = Math.max(halfSize, Math.min(canvas.width - halfSize, player.x));
-            player.y = Math.max(halfSize, Math.min(canvas.height - halfSize, player.y));
+            const half=PLAYER_SIZE/2;
+            player.x=Math.max(half,Math.min(canvas.width-half,player.x));
+            player.y=Math.max(half,Math.min(canvas.height-half,player.y));
 
-            updateParticles(deltaTime);
+            updateParticles(delta);
 
-            spawnTimer -= deltaTime;
-            if (spawnTimer <= 0) {
-                spawnBall();
-                ballSpeedFactor = 1.0 + Math.min(score / 50, 4.0);
-                spawnInterval = Math.max(1000 - score * 10, 50);
-                spawnTimer = spawnInterval;
-            }
+            // spawn
+            spawnTimer-=delta;
+            if(spawnTimer<=0){ spawnBall(); ballSpeedFactor=1.0+Math.min(score/50,4.0); spawnInterval=Math.max(1000-score*10,50); spawnTimer=spawnInterval; }
 
-            for (let i = balls.length - 1; i >= 0; i--) {
-                const ball = balls[i];
-                ball.y += ball.speed * (deltaTime / 16.67);
-                if (ball.y - ball.radius > canvas.height) balls.splice(i, 1);
-                if (checkCollision(player, ball)) { gameOver(); return; }
+            // balls
+            for(let i=balls.length-1;i>=0;i--){
+                const b=balls[i];
+                b.y+=b.speed*(delta/16.67);
+                if(b.y-b.radius>canvas.height){ balls.splice(i,1); continue; }
+                if(checkCollision(player,b)){ gameOver(); return; }
             }
 
-            for (let i = projectiles.length - 1; i >= 0; i--) {
-                const p = projectiles[i];
-                p.y += p.vy * p.speed * (deltaTime / 16.67);
-                if (p.y + p.radius < 0) { projectiles.splice(i, 1); continue; }
-                let hit = false;
-                for (let j = balls.length - 1; j >= 0; j--) {
-                    const ball = balls[j];
-                    const dx = p.x - ball.x;
-                    const dy = p.y - ball.y;
-                    const dist = Math.sqrt(dx*dx + dy*dy);
-                    if (dist < (p.radius + ball.radius)) {
-                        hit = true;
-                        ball.health -= p.damage;
-                        playHitSound();
-                        if (ball.health <= 0) {
-                            const reward = Math.ceil(ball.maxHealth / 2);
-                            sessionCoins += reward;
-                            updateCoinDisplay();
-                            balls.splice(j, 1);
+            // projectiles
+            for(let i=projectiles.length-1;i>=0;i--){
+                const p=projectiles[i];
+                p.y+=p.vy*p.speed*(delta/16.67);
+                if(p.y+p.radius<0){ projectiles.splice(i,1); continue; }
+                let hit=false;
+                for(let j=balls.length-1;j>=0;j--){
+                    const b=balls[j];
+                    const d=Math.hypot(p.x-b.x,p.y-b.y);
+                    if(d<(p.radius+b.radius)){
+                        hit=true; b.health-=p.damage; playHitSound();
+                        if(b.health<=0){
+                            const reward=Math.ceil(b.maxHealth/2);
+                            sessionCoins+=reward; updateCoinDisplay(); balls.splice(j,1);
                         }
                         break;
                     }
                 }
-                if (hit) projectiles.splice(i, 1);
+                if(hit) projectiles.splice(i,1);
             }
         }
 
-        function checkCollision(p, b) {
-            const dx = p.x - b.x;
-            const dy = p.y - b.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            return distance < (b.radius + PLAYER_SIZE / 2); 
+        function checkCollision(p,b){
+            return Math.hypot(p.x-b.x,p.y-b.y) < (b.radius + PLAYER_SIZE/2);
         }
 
-        function drawPlayer() {
-            const currentShip = SHIP_DATA.find(s => s.id === equippedShipId) || SHIP_DATA[0];
-            ctx.save();
-            ctx.translate(player.x, player.y);
-            ctx.rotate(player.rotation); 
-            const halfSize = PLAYER_SIZE / 2;
+        function drawPlayer(){
+            const ship=SHIP_DATA.find(s=>s.id===equippedShipId)||SHIP_DATA[0];
+            ctx.save(); ctx.translate(player.x,player.y); ctx.rotate(player.rotation);
+            const half=PLAYER_SIZE/2;
 
-            player.particles.forEach(p => {
-                ctx.globalAlpha = p.life / 100;
-                ctx.fillStyle = p.color;
+            // particles
+            player.particles.forEach(p=>{
+                ctx.globalAlpha=p.life/100;
+                ctx.fillStyle=p.color;
                 ctx.beginPath();
-                ctx.arc(p.x - player.x, p.y - player.y, p.size * (p.life/100), 0, Math.PI * 2);
+                ctx.arc(p.x-player.x,p.y-player.y,p.size*(p.life/100),0,Math.PI*2);
                 ctx.fill();
-                ctx.globalAlpha = 1.0;
-            });
+            }); ctx.globalAlpha=1;
 
-            ctx.shadowColor = currentShip.engineColor;
-            ctx.shadowBlur = 10;
-            ctx.fillStyle = currentShip.engineColor; 
-            ctx.fillRect(-halfSize * 0.6, halfSize, halfSize * 1.2, PLAYER_SIZE * 0.5); 
+            // engine glow
+            ctx.shadowColor=ship.engineColor; ctx.shadowBlur=10;
+            ctx.fillStyle=ship.engineColor;
+            ctx.fillRect(-half*0.6,half,half*1.2,PLAYER_SIZE*0.5);
 
-            ctx.shadowColor = currentShip.glow;
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = currentShip.color;
-            ctx.beginPath();
-            if (currentShip.id === 'default' || currentShip.id === 'viper') {
-                ctx.moveTo(0, -PLAYER_SIZE);
-                ctx.lineTo(halfSize * 1.5, halfSize);
-                ctx.lineTo(-halfSize * 1.5, halfSize);
-            } else if (currentShip.id === 'ghost') {
-                ctx.moveTo(0, -PLAYER_SIZE);
-                ctx.lineTo(halfSize * 1.5, halfSize * 0.5);
-                ctx.lineTo(halfSize * 0.8, halfSize);
-                ctx.lineTo(-halfSize * 0.8, halfSize);
-                ctx.lineTo(-halfSize * 1.5, halfSize * 0.5);
-            } else if (currentShip.id === 'titan') {
-                ctx.moveTo(0, -PLAYER_SIZE);
-                ctx.lineTo(halfSize * 2, halfSize * 0.8);
-                ctx.lineTo(halfSize * 1.5, halfSize);
-                ctx.lineTo(-halfSize * 1.5, halfSize);
-                ctx.lineTo(-halfSize * 2, halfSize * 0.8);
-            } else if (currentShip.id === 'quantum' || currentShip.id === 'ultimate') {
-                ctx.moveTo(0, -PLAYER_SIZE * 1.2);
-                ctx.lineTo(halfSize * 0.5, -halfSize * 0.5);
-                ctx.lineTo(halfSize * 2, halfSize * 0.8);
-                ctx.lineTo(halfSize * 1.5, halfSize);
-                ctx.lineTo(-halfSize * 1.5, halfSize);
-                ctx.lineTo(-halfSize * 2, halfSize * 0.8);
-                ctx.lineTo(-halfSize * 0.5, -halfSize * 0.5);
+            // ship body
+            ctx.shadowColor=ship.glow; ctx.shadowBlur=15;
+            ctx.fillStyle=ship.color; ctx.beginPath();
+            if(ship.id==='default'||ship.id==='viper'){
+                ctx.moveTo(0,-PLAYER_SIZE); ctx.lineTo(half*1.5,half); ctx.lineTo(-half*1.5,half);
+            }else if(ship.id==='ghost'){
+                ctx.moveTo(0,-PLAYER_SIZE); ctx.lineTo(half*1.5,half*0.5); ctx.lineTo(half*0.8,half);
+                ctx.lineTo(-half*0.8,half); ctx.lineTo(-half*1.5,half*0.5);
+            }else if(ship.id==='titan'){
+                ctx.moveTo(0,-PLAYER_SIZE); ctx.lineTo(half*2,half*0.8); ctx.lineTo(half*1.5,half);
+                ctx.lineTo(-half*1.5,half); ctx.lineTo(-half*2,half*0.8);
+            }else{
+                ctx.moveTo(0,-PLAYER_SIZE*1.2); ctx.lineTo(half*0.5,-half*0.5); ctx.lineTo(half*2,half*0.8);
+                ctx.lineTo(half*1.5,half); ctx.lineTo(-half*1.5,half); ctx.lineTo(-half*2,half*0.8);
+                ctx.lineTo(-half*0.5,-half*0.5);
             }
-            ctx.closePath();
-            ctx.fill();
+            ctx.closePath(); ctx.fill(); ctx.shadowBlur=0;
 
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#0d1117';
-            ctx.beginPath();
-            ctx.arc(0, -PLAYER_SIZE * 0.4, PLAYER_SIZE * 0.2, 0, Math.PI * 2);
-            ctx.fill();
+            // cockpit
+            ctx.fillStyle='#0d1117';
+            ctx.beginPath(); ctx.arc(0,-PLAYER_SIZE*0.4,PLAYER_SIZE*0.2,0,Math.PI*2); ctx.fill();
 
-            if (currentShip.id === 'ghost' || currentShip.id === 'titan' || currentShip.id === 'quantum' || currentShip.id === 'ultimate') {
-                ctx.fillStyle = currentShip.engineColor;
-                ctx.shadowColor = currentShip.engineColor;
-                ctx.shadowBlur = 5;
-                if (currentShip.id === 'ghost') {
-                    ctx.fillRect(halfSize * 1.1, -halfSize * 0.5, 5, 12);
-                    ctx.fillRect(-halfSize * 1.1 - 5, -halfSize * 0.5, 5, 12);
-                } else if (currentShip.id === 'titan') {
-                    ctx.fillRect(halfSize * 1.8, halfSize * 0.2, 8, 15);
-                    ctx.fillRect(-halfSize * 1.8 - 8, halfSize * 0.2, 8, 15);
-                } else if (currentShip.id === 'quantum' || currentShip.id === 'ultimate') {
-                    ctx.fillRect(-2, -PLAYER_SIZE * 1.2, 4, 10);
-                    ctx.fillRect(halfSize * 1.8, halfSize * 0.5, 6, 10);
-                    ctx.fillRect(-halfSize * 1.8 - 6, halfSize * 0.5, 6, 10);
+            // extra details for higher tiers
+            if(['ghost','titan','quantum','ultimate'].includes(ship.id)){
+                ctx.fillStyle=ship.engineColor; ctx.shadowColor=ship.engineColor; ctx.shadowBlur=5;
+                if(ship.id==='ghost'){
+                    ctx.fillRect(half*1.1,-half*0.5,5,12); ctx.fillRect(-half*1.1-5,-half*0.5,5,12);
+                }else if(ship.id==='titan'){
+                    ctx.fillRect(half*1.8,half*0.2,8,15); ctx.fillRect(-half*1.8-8,half*0.2,8,15);
+                }else{
+                    ctx.fillRect(-2,-PLAYER_SIZE*1.2,4,10);
+                    ctx.fillRect(half*1.8,half*0.5,6,10); ctx.fillRect(-half*1.8-6,half*0.5,6,10);
                 }
-                ctx.shadowBlur = 0;
+                ctx.shadowBlur=0;
             }
             ctx.restore();
         }
 
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#161b22';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        function draw(){
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.fillStyle='#161b22'; ctx.fillRect(0,0,canvas.width,canvas.height);
 
-            projectiles.forEach(p => {
-                ctx.fillStyle = p.color;
-                ctx.shadowColor = p.color;
-                ctx.shadowBlur = 10;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                ctx.fill();
-            });
-            ctx.shadowBlur = 0;
+            // projectiles
+            projectiles.forEach(p=>{
+                ctx.fillStyle=p.color; ctx.shadowColor=p.color; ctx.shadowBlur=10;
+                ctx.beginPath(); ctx.arc(p.x,p.y,p.radius,0,Math.PI*2); ctx.fill();
+            }); ctx.shadowBlur=0;
 
-            balls.forEach(ball => {
-                const x = ball.x, y = ball.y, r = ball.radius;
-                ctx.shadowColor = METEOR_GLOW_COLOR;
-                ctx.shadowBlur = 20;
-                ctx.fillStyle = METEOR_BODY_COLOR;
-                ctx.beginPath();
-                ctx.arc(x, y, r, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.shadowBlur = 0;
+            // balls (meteors)
+            balls.forEach(b=>{
+                const {x,y,radius:r}=b;
+                ctx.shadowColor=METEOR_GLOW_COLOR; ctx.shadowBlur=20;
+                ctx.fillStyle=METEOR_BODY_COLOR;
+                ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
 
-                const damageRatio = ball.health / ball.maxHealth;
-                if (damageRatio < 1.0) {
-                    const red = 74 + (1 - damageRatio) * 150;
-                    ctx.fillStyle = `rgb(${Math.floor(red)}, 74, 74)`;
-                    ctx.beginPath();
-                    ctx.arc(x, y, r * 0.9, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.fillStyle = '#0d1117';
-                    ctx.fillRect(x - r, y - r - 8, r * 2, 4);
-                    ctx.fillStyle = damageRatio > 0.5 ? '#39ff14' : (damageRatio > 0.2 ? '#ffff00' : '#ff0000');
-                    ctx.fillRect(x - r, y - r - 8, r * 2 * damageRatio, 4);
+                const dmg=b.health/b.maxHealth;
+                if(dmg<1){
+                    const red=74+(1-dmg)*150;
+                    ctx.fillStyle=`rgb(${Math.floor(red)},74,74)`;
+                    ctx.beginPath(); ctx.arc(x,y,r*0.9,0,Math.PI*2); ctx.fill();
+                    ctx.fillStyle='#0d1117';
+                    ctx.fillRect(x-r,y-r-8,r*2,4);
+                    ctx.fillStyle=dmg>0.5?'#39ff14':dmg>0.2?'#ffff00':'#ff0000';
+                    ctx.fillRect(x-r,y-r-8,r*2*dmg,4);
                 }
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-                ctx.beginPath();
-                ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.2, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-                ctx.beginPath();
-                ctx.arc(x + r * 0.4, y + r * 0.1, r * 0.25, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.fillStyle='rgba(255,255,255,0.25)';
+                ctx.beginPath(); ctx.arc(x-r*0.3,y-r*0.3,r*0.2,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='rgba(0,0,0,0.4)';
+                ctx.beginPath(); ctx.arc(x+r*0.4,y+r*0.1,r*0.25,0,Math.PI*2); ctx.fill();
             });
 
             drawPlayer();
         }
 
-        function gameLoop(currentTime) {
-            if (!gameRunning) return;
-            update(currentTime);
-            draw();
-            requestAnimationFrame(gameLoop);
+        function gameLoop(t){
+            if(!gameRunning) return;
+            update(t); draw(); requestAnimationFrame(gameLoop);
         }
 
-        function gameOver() {
-            gameRunning = false;
-            playGameOverSound();
-            disposeSynths();
-            coins += sessionCoins;
-            shopContainer.style.display = 'none';
-            standardOverlay.style.display = 'flex';
-            overlayTitle.textContent = 'GAME OVER';
-            overlayTitle.classList.remove('text-cyan-400');
-            overlayTitle.classList.add('text-red-500', 'animate-pulse');
-            const currentShip = SHIP_DATA.find(s => s.id === equippedShipId);
-            const multiplier = currentShip ? currentShip.multiplier : 1;
-            overlayMessage.textContent = `You survived for ${score.toFixed(2)} seconds and earned ${sessionCoins} new coins (${multiplier}x multiplier).`;
-            totalCoinsMessage.textContent = `TOTAL BALANCE: ${coins} COINS`;
-            actionButton.textContent = 'RESTART ARENA';
-            overlay.style.display = 'flex';
-            overlay.classList.add('game-over-visible');
+        function gameOver(){
+            gameRunning=false; playGameOverSound(); disposeSynths();
+            coins+=sessionCoins;
+            shopContainer.style.display='none'; standardOverlay.style.display='flex';
+            overlayTitle.textContent='GAME OVER';
+            overlayTitle.className='text-6xl mb-4 font-extrabold tracking-widest text-red-500 animate-pulse';
+            const ship=SHIP_DATA.find(s=>s.id===equippedShipId);
+            overlayMessage.textContent=`You survived for ${score.toFixed(2)} seconds and earned ${sessionCoins} new coins (${ship.multiplier}x multiplier).`;
+            totalCoinsMessage.textContent=`TOTAL BALANCE: ${coins} COINS`;
+            actionButton.textContent='RESTART ARENA';
+            overlay.style.display='flex'; overlay.classList.add('game-over-visible');
             updateCoinDisplay();
         }
 
-        document.addEventListener('keydown', (e) => {
-            keys[e.key] = true;
-            if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
-            if (e.key === ' ' && gameRunning) shootProjectile();
+        // ---- Input ----
+        document.addEventListener('keydown',e=>{
+            keys[e.key]=true;
+            if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
+            if(e.key===' '&&gameRunning) shootProjectile();
         });
-        document.addEventListener('keyup', (e) => { keys[e.key] = false; });
-        canvas.addEventListener('click', () => { if (gameRunning) shootProjectile(); });
+        document.addEventListener('keyup',e=>keys[e.key]=false);
+        canvas.addEventListener('click',()=>gameRunning&&shootProjectile());
 
-        let touchStart = { x: 0, y: 0 }, touchTimer = 0, isMoving = false;
-        canvas.addEventListener('touchstart', (e) => {
+        // touch
+        let touchStart={x:0,y:0},touchTimer=0,isMoving=false;
+        canvas.addEventListener('touchstart',e=>{
             e.preventDefault();
-            const touch = e.touches[0];
-            touchStart.x = touch.clientX;
-            touchStart.y = touch.clientY;
-            touchTimer = Date.now();
-            isMoving = false;
-            const rect = canvas.getBoundingClientRect();
-            const tx = touch.clientX - rect.left;
-            const ty = touch.clientY - rect.top;
-            const dx = tx - player.x;
-            const dy = ty - player.y;
-            let mx = 0, my = 0;
-            if (Math.abs(dx) > 10) mx = dx > 0 ? 1 : -1;
-            if (Math.abs(dy) > 10) my = dy > 0 ? 1 : -1;
-            keys['w'] = my < 0; keys['s'] = my > 0;
-            keys['a'] = mx < 0; keys['d'] = mx > 0;
-        }, { passive: false });
-        canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            isMoving = true;
-            const touch = e.touches[0];
-            const dx = touch.clientX - touchStart.x;
-            const dy = touch.clientY - touchStart.y;
-            const threshold = 15;
-            keys['w'] = dy < -threshold; keys['s'] = dy > threshold;
-            keys['a'] = dx < -threshold; keys['d'] = dx > threshold;
-        }, { passive: false });
-        canvas.addEventListener('touchend', () => {
-            keys['w'] = keys['s'] = keys['a'] = keys['d'] = false;
-            const duration = Date.now() - touchTimer;
-            if (duration < 150 && !isMoving && gameRunning) shootProjectile();
+            const t=e.touches[0];
+            touchStart.x=t.clientX; touchStart.y=t.clientY;
+            touchTimer=Date.now(); isMoving=false;
+            const rect=canvas.getBoundingClientRect();
+            const tx=t.clientX-rect.left, ty=t.clientY-rect.top;
+            const dx=tx-player.x, dy=ty-player.y;
+            let mx=0,my=0;
+            if(Math.abs(dx)>10) mx=dx>0?1:-1;
+            if(Math.abs(dy)>10) my=dy>0?1:-1;
+            keys['w']=my<0; keys['s']=my>0; keys['a']=mx<0; keys['d']=mx>0;
+        },{passive:false});
+        canvas.addEventListener('touchmove',e=>{
+            e.preventDefault(); isMoving=true;
+            const t=e.touches[0];
+            const dx=t.clientX-touchStart.x, dy=t.clientY-touchStart.y;
+            const thr=15;
+            keys['w']=dy<-thr; keys['s']=dy>thr; keys['a']=dx<-thr; keys['d']=dx>thr;
+        },{passive:false});
+        canvas.addEventListener('touchend',()=>{
+            keys['w']=keys['s']=keys['a']=keys['d']=false;
+            const dur=Date.now()-touchTimer;
+            if(dur<150 && !isMoving && gameRunning) shootProjectile();
         });
 
-        actionButton.addEventListener('click', startGame);
-        shopButton.addEventListener('click', showShop);
-        backButton.addEventListener('click', initStartScreen);
-        window.addEventListener('resize', resizeCanvas);
+        // ---- UI buttons ----
+        actionButton.addEventListener('click',startGame);
+        shopButton.addEventListener('click',showShop);
+        backButton.addEventListener('click',initStartScreen);
+        window.addEventListener('resize',resizeCanvas);
 
-        // Initialize the start screen
+        // ---- Start ----
         initStartScreen();
     </script>
 </body>
