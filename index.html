@@ -130,6 +130,7 @@
         const MAX_ROTATION = Math.PI / 8;
         const SPREAD_ANGLE_RADIANS = 0.05; 
         const PLAYER_INVULNERABILITY_TIME = 2000; 
+        const DAMAGE_FLASH_TIME = 100; // Time in ms for the red flash
 
         // --- GAME STATE ---
         let gameRunning = false;
@@ -139,6 +140,7 @@
         let enemies = [], projectiles = [], enemyProjectiles = [];
         let score = 0, lastTime = 0, spawnTimer = 0; 
         let keys = {};
+        let screenFlashTimer = 0; // NEW: Timer for the red screen flash
 
         // --- NEW SIMPLE AUDIO SYSTEM ---
         let audioCtx = null;
@@ -442,7 +444,8 @@
             score=0; sessionCoins=0;
             lastTime=performance.now(); lastCoinUpdateTime=lastTime; lastHitSoundTime=0;
             spawnTimer=0; keys={};
-
+            screenFlashTimer = 0; // Reset flash timer
+            
             currentWave = 1;
             killsInCurrentWave = 0;
             
@@ -478,6 +481,9 @@
             if (player.isInvulnerable || !gameRunning) return;
 
             playerLives--;
+            
+            // NEW: Start the screen flash timer
+            screenFlashTimer = DAMAGE_FLASH_TIME; 
             
             if (playerLives <= 0) {
                 playerLives = 0;
@@ -653,6 +659,12 @@
                     player.isInvulnerable = false;
                 }
             }
+            
+            // NEW: Decrement the screen flash timer
+            if (screenFlashTimer > 0) {
+                screenFlashTimer -= delta;
+                if (screenFlashTimer < 0) screenFlashTimer = 0;
+            }
 
             spawnTimer-=delta;
             const maxEnemies = Math.min(20, 1 + currentWave);
@@ -673,9 +685,10 @@
                     e.shootTimer = e.shotCooldown;
                 }
 
+                // --- CRASH FIX 1: Enemy collision ---
                 if(!player.isInvulnerable && checkCollision(player, e)){ 
                     loseLife();
-                    if(!gameRunning) return; 
+                    return; // Return immediately to prevent array manipulation after reset in loseLife()
                 }
             }
 
@@ -721,10 +734,10 @@
                     enemyProjectiles.splice(i,1); continue; 
                 }
 
+                // --- CRASH FIX 2: Enemy projectile collision ---
                 if(!player.isInvulnerable && checkCollision(player, ep)){
                     loseLife();
-                    if(!gameRunning) return; // <-- FIX ADDED HERE
-                    enemyProjectiles.splice(i,1); 
+                    return; // Return immediately to prevent array manipulation after reset in loseLife()
                 }
             }
         }
@@ -929,6 +942,16 @@
 
             const currentShip = SHIP_DATA.find(s=>s.id===equippedShipId);
             drawShip(ctx, currentShip, player.x, player.y, player.rotation, true, player.isInvulnerable);
+            
+            // NEW: Draw red flash overlay
+            if (screenFlashTimer > 0) {
+                const maxAlpha = 0.5; // Max transparency
+                // Fades out from 0.5 opacity over the flash time
+                const alpha = maxAlpha * (screenFlashTimer / DAMAGE_FLASH_TIME); 
+                
+                ctx.fillStyle = `rgba(255, 0, 0, ${alpha})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
         }
 
         function gameLoop(t){
